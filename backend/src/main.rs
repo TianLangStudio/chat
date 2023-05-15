@@ -2,59 +2,126 @@
 //!
 //! Open `http://localhost:8080/` in browser to test.
 use std::{fs::File, io::BufReader};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::time::Instant;
+use actix::Addr;
+use actix::Actor;
 use actix_files::NamedFile;
 use actix_web::{
-    middleware, rt, web, App, Error, HttpRequest, HttpResponse, HttpServer, Responder,
+    dev::PeerAddr, error, middleware,web, App, Error, HttpRequest, HttpResponse, HttpServer, Responder,
 };
+use url::Url;
+
 use rustls::{Certificate, PrivateKey, ServerConfig};
 use rustls_pemfile::{certs, pkcs8_private_keys};
-mod handler;
+use actix_web_actors::ws;
+use crate::server::ChatServer;
+use awc::Client;
+//mod handler;
+mod server;
+mod session;
 
 async fn index() -> impl Responder {
     NamedFile::open_async("./static/index.html").await.unwrap()
 }
 
-/// Handshake and start WebSocket handler with heartbeats.
-async fn echo_heartbeat_ws(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, Error> {
-    let (res, session, msg_stream) = actix_ws::handle(&req, stream)?;
-
-    // spawn websocket handler (and don't await it) so that the response is returned immediately
-    rt::spawn(handler::echo_heartbeat_ws(session, msg_stream));
-
-    Ok(res)
+/// Entry point for our websocket route
+async fn chat_route(
+    path: web::Path<String>,
+    req: HttpRequest,
+    stream: web::Payload,
+    session_id_seq: web::Data<Arc<AtomicU64>>,
+    srv: web::Data<Addr<server::ChatServer>>,
+) -> Result<HttpResponse, Error> {
+    let room_no = path.into_inner();
+    ws::start(
+        session::WsChatSession {
+            id: session_id_seq.fetch_add(1, Ordering::SeqCst) as usize,
+            hb: Instant::now(),
+            room: room_no,
+            name: None,
+            addr: srv.get_ref().clone(),
+        },
+        &req,
+        stream,
+    )
 }
 
-/// Handshake and start basic WebSocket handler.
-///
-/// This example is just for demonstration of simplicity. In reality, you likely want to include
-/// some handling of heartbeats for connection health tracking to free up server resources when
-/// connections die or network issues arise.
-async fn echo_ws(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, Error> {
-    let (res, session, msg_stream) = actix_ws::handle(&req, stream)?;
-
-    // spawn websocket handler (and don't await it) so that the response is returned immediately
-    rt::spawn(handler::echo_ws(session, msg_stream));
-
-    Ok(res)
+async fn get_count(count: web::Data<AtomicUsize>) -> impl Responder {
+    let current_count = count.load(Ordering::SeqCst);
+    format!("Visitors: {current_count}")
+}
+async fn get_rooms(chat_server: web::Data<Addr<ChatServer>>) -> impl Responder {
+    chat_server.send(server::ListRooms).await.map(|s|s.join(",")).unwrap_or("".to_string())
 }
 
-// note that the `actix` based WebSocket handling would NOT work under `tokio::main`
-#[tokio::main(flavor = "current_thread")]
+async fn forward(
+    req: HttpRequest,
+    payload: web::Payload,
+    peer_addr: Option<PeerAddr>,
+    url: web::Data<Url>,
+    client: web::Data<Client>,
+) -> Result<HttpResponse, Error> {
+    let mut new_url = (**url).clone();
+    new_url.set_path(req.uri().path());
+    new_url.set_query(req.uri().query());
+    println!("new_url:{}", new_url);
+    let forwarded_req = client
+        .request_from(new_url.as_str(), req.head())
+        .no_decompress();
+
+    // TODO: This forwarded implementation is incomplete as it only handles the unofficial
+    // X-Forwarded-For header but not the official Forwarded one.
+    let forwarded_req = match peer_addr {
+        Some(PeerAddr(addr)) => {
+            forwarded_req.insert_header(("x-forwarded-for", addr.ip().to_string()))
+        }
+        None => forwarded_req,
+    };
+
+    let res = forwarded_req
+        .send_stream(payload)
+        .await
+        .map_err(error::ErrorInternalServerError)?;
+
+    let mut client_resp = HttpResponse::build(res.status());
+    // Remove `Connection` as per
+    // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Connection#Directives
+    for (header_name, header_value) in res.headers().iter().filter(|(h, _)| *h != "connection") {
+        client_resp.insert_header((header_name.clone(), header_value.clone()));
+    }
+
+    Ok(client_resp.streaming(res))
+}
+#[actix_web::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
     let config = load_rustls_config();
 
     log::info!("starting HTTPS server at https://localhost:8443");
-
-    HttpServer::new(|| {
+    let session_id_seq = Arc::new(AtomicU64::new(0));
+    // start chat server actor
+    let visitor_count = Arc::new(AtomicUsize::new(0));
+    let server = server::ChatServer::new(visitor_count.clone()).start();
+    let forward_url = format!("http://localhost:3000");
+    let forward_url = Url::parse(&forward_url).unwrap();
+    HttpServer::new(move || {
         App::new()
+            .app_data(web::Data::new(Client::default()))
+            .app_data(web::Data::new(session_id_seq.clone()))
+            .app_data(web::Data::new(forward_url.clone()))
+            .app_data(web::Data::new(visitor_count.clone()))
+            .app_data(web::Data::new(server.clone()))
+            .route("/chat/count", web::get().to(get_count))
+            .route("/chat/list/room", web::get().to(get_rooms))
+            .route("/chat/ws/room/{room_no}", web::get().to(chat_route))
             // WebSocket UI HTML file
-            .service(web::resource("/").to(index))
-            // websocket routes
-            .service(web::resource("/ws").route(web::get().to(echo_heartbeat_ws)))
-            .service(web::resource("/ws-basic").route(web::get().to(echo_ws)))
+           // .service(web::resource("/").to(index))
+            .default_service(web::to(forward))
             // enable logger
             .wrap(middleware::Logger::default())
+
     })
     .workers(2)
      .bind_rustls("127.0.0.1:8443", config)?

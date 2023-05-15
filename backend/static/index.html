@@ -97,7 +97,7 @@
         const { location } = window
 
         const proto = location.protocol.startsWith('https') ? 'wss' : 'ws'
-        const wsUri = `${proto}://${location.host}/ws`
+        const wsUri = `${proto}://${location.host}/chat/ws/room/hello`
 
         log('Connecting...')
         socket = new WebSocket(wsUri)
