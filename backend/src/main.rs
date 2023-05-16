@@ -31,15 +31,15 @@ async fn chat_route(
     path: web::Path<String>,
     req: HttpRequest,
     stream: web::Payload,
-    session_id_seq: web::Data<Arc<AtomicU64>>,
+    _session_id_seq: web::Data<Arc<AtomicU64>>,
     srv: web::Data<Addr<server::ChatServer>>,
 ) -> Result<HttpResponse, Error> {
-    let room_no = path.into_inner();
+    let _room_no = path.into_inner();
     ws::start(
         session::WsChatSession {
-            id: session_id_seq.fetch_add(1, Ordering::SeqCst) as usize,
+            id: 0,
             hb: Instant::now(),
-            room: room_no,
+            room: "main".to_string(),
             name: None,
             addr: srv.get_ref().clone(),
         },
@@ -124,7 +124,7 @@ async fn main() -> std::io::Result<()> {
 
     })
     .workers(2)
-     .bind_rustls("127.0.0.1:8443", config)?
+     .bind_rustls("0.0.0.0:8443", config)?
     .run()
     .await
 }

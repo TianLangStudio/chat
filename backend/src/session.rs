@@ -11,6 +11,87 @@ const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 /// How long before lack of client response causes a timeout
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 
+//use json::JsonValue;
+use serde::{Deserialize, Serialize};
+const MSG_NAME_START_VIDEO: &str = "StartVideo";
+const MSG_NAME_SEND_OFFER: &str ="SendOffer";
+const MSG_NAME_SEND_ANSWER: &str ="SendAnswer";
+const MSG_NAME_SEND_CANDIDATE: &str ="SendCandidate";
+const JOINED_MSG_NAME: &str = "JoinedMsg";
+#[derive(Debug, Serialize, Deserialize)]
+struct JoinedMsg {
+    name: String,
+    room_no:String,
+    id:usize,
+}
+
+impl JoinedMsg {
+    pub fn new(room_no:String, id:usize) -> Self {
+        Self {
+            name: JOINED_MSG_NAME.to_string(),
+            room_no,
+            id,
+        }
+    }
+}
+#[derive(Debug, Serialize, Deserialize)]
+struct MsgWithName {
+    name: String,
+    room_no:String,
+    id:usize,
+    msg:String
+}
+impl MsgWithName {
+    pub fn new(room_no:String, id:usize, name: String, msg: String) -> Self {
+         Self {
+             name,
+             room_no,
+             id,
+             msg
+         }
+    }
+}
+const ERROR_MSG_NAME: &str = "ErrorMsg";
+#[derive(Debug, Serialize, Deserialize)]
+struct ErrorMsg {
+    name: String,
+    room_no:String,
+    id:usize,
+    msg: String,
+}
+impl ErrorMsg {
+    pub  fn new(room_no: String, id:usize, msg:String) -> Self {
+        Self {
+            name: ERROR_MSG_NAME.to_string(),
+            room_no,
+            id,
+            msg,
+        }
+    }
+}
+const ROOM_MSG_NAME: &str = "RoomMsg";
+#[derive(Debug, Serialize, Deserialize)]
+struct RoomMsg {
+    name: String,
+    room_no:String,
+    from:usize,
+    msg: String,
+}
+
+impl RoomMsg {
+    pub fn new(room_no:String, from: usize, msg: String) -> Self {
+        Self {
+            name: ROOM_MSG_NAME.to_string(),
+            room_no,
+            from,
+            msg,
+        }
+    }
+}
+
+
+
+
 #[derive(Debug)]
 pub struct WsChatSession {
     /// unique session id
@@ -99,7 +180,8 @@ impl Handler<server::Message> for WsChatSession {
     type Result = ();
 
     fn handle(&mut self, msg: server::Message, ctx: &mut Self::Context) {
-        ctx.text(msg.0);
+        let room_msg = RoomMsg::new(self.room.clone(), msg.1, msg.0);
+        ctx.text(serde_json::to_string(&room_msg).unwrap());
     }
 }
 
@@ -159,20 +241,36 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
                                     id: self.id,
                                     name: self.room.clone(),
                                 });
+                                let joined_msg = JoinedMsg::new(self.room.clone(), self.id.clone());
+                                ctx.text(serde_json::to_string(&joined_msg).unwrap());
 
-                                ctx.text("joined");
                             } else {
-                                ctx.text("!!! room name is required");
+                                let error_msg = ErrorMsg::new(self.room.clone(),
+                                                              self.id,
+                                                              "!!! room name is required".to_string()
+                                );
+                                ctx.text(serde_json::to_string(&error_msg).unwrap());
                             }
                         }
                         "/name" => {
                             if v.len() == 2 {
                                 self.name = Some(v[1].to_owned());
                             } else {
-                                ctx.text("!!! name is required");
+                                let error_msg = ErrorMsg::new(self.room.clone(),
+                                                              self.id,
+                                                              "!!! name is required".to_string()
+                                );
+                                ctx.text(serde_json::to_string(&error_msg).unwrap());
                             }
                         }
-                        _ => ctx.text(format!("!!! unknown command: {m:?}")),
+                        _ => {
+                            let error_msg = ErrorMsg::new(self.room.clone(),
+                                                          self.id,
+                                                          format!("!!! unknown command: {m:?}")
+                            );
+
+                            ctx.text(serde_json::to_string(&error_msg).unwrap());
+                        },
                     }
                 } else {
                     let msg = if let Some(ref name) = self.name {
@@ -185,6 +283,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
                         id: self.id,
                         msg,
                         room: self.room.clone(),
+
                     })
                 }
             }

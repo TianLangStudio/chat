@@ -5,26 +5,30 @@ import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
 import MenuIcon from '@mui/icons-material/Menu';
 import SearchIcon from '@mui/icons-material/Search';
+import MissedVideoCallIcon from '@mui/icons-material/MissedVideoCall';
 import DirectionsIcon from '@mui/icons-material/Directions';
 import {useCallback, useState} from "react";
 
 
-export default function RoomSearch(props) {
-    const {onSearch = (search)=> {}} = props;
-    const [searchText,setSearchText] = useState('');
+export default function MsgInput(props) {
+    const {onSend= (msg)=> {}, onVideo = () => {}} = props;
+    const [msg, setMsg] = useState('');
 
     const onChange = useCallback((e) => {
         console.log(e);
         const value = e.target.value;
-        setSearchText(value);
-        _onSearch(value);
+        setMsg(value)
+        _onSend(value);
     }, [])
-    function _onSearch(searchText) {
-        onSearch(searchText.trim());
+    function _onSend(msg) {
+        if(msg.length > 0 && onSend(msg)) {
+            setMsg('');
+        }
     }
     function onClick() {
-        _onSearch(searchText);
+        _onSend(msg)
     }
+
     return (
         <Paper
             component="div"
@@ -32,13 +36,17 @@ export default function RoomSearch(props) {
         >
             <InputBase
                 sx={{ ml: 1, flex: 1 }}
-                placeholder="search by room No."
-                inputProps={{ 'aria-label': 'search by room No.' }}
-                value={searchText}
+                placeholder="there put input your message"
+                inputProps={{ 'aria-label': 'there put input your message' }}
+                value={msg}
                 onChange={onChange}
             />
-            <IconButton type="button" sx={{ p: '10px' }} aria-label="search" onClick={onClick}>
+            <IconButton type="button" sx={{ p: '10px' }} aria-label="send" onClick={onClick}>
                 <SearchIcon />
+            </IconButton>
+            <Divider orientation="vertical"/>
+            <IconButton type="button" sx={{ p: '10px' }} aria-label="send" onClick={onVideo}>
+                <MissedVideoCallIcon />
             </IconButton>
         </Paper>
     );
