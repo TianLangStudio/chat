@@ -13,10 +13,10 @@ const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 
 //use json::JsonValue;
 use serde::{Deserialize, Serialize};
-const MSG_NAME_START_VIDEO: &str = "StartVideo";
+/*const MSG_NAME_START_VIDEO: &str = "StartVideo";
 const MSG_NAME_SEND_OFFER: &str ="SendOffer";
 const MSG_NAME_SEND_ANSWER: &str ="SendAnswer";
-const MSG_NAME_SEND_CANDIDATE: &str ="SendCandidate";
+const MSG_NAME_SEND_CANDIDATE: &str ="SendCandidate";*/
 const JOINED_MSG_NAME: &str = "JoinedMsg";
 #[derive(Debug, Serialize, Deserialize)]
 struct JoinedMsg {
@@ -42,6 +42,7 @@ struct MsgWithName {
     msg:String
 }
 impl MsgWithName {
+    #[allow(dead_code)]
     pub fn new(room_no:String, id:usize, name: String, msg: String) -> Self {
          Self {
              name,

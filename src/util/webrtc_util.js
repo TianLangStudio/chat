@@ -9,9 +9,11 @@ let localMediaStream = null;
 //ice服务器信息, 用于创建 SDP 对象
 let iceServers = {
     "iceServers": [
-        // {"url": "stun:stun.l.google.com:19302"},
+        {"urls": ["turn:192.168.0.179:3478"], "username": "user", "credential": "pass"},
+        {"url": "stun:stun.l.google.com:19302"},
         {"urls": ["stun:159.75.239.36:3478"]},
         {"urls": ["turn:159.75.239.36:3478"], "username": "chr", "credential": "123456"},
+
     ]
 };
 

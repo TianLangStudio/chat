@@ -21,7 +21,10 @@ use awc::Client;
 //mod handler;
 mod server;
 mod session;
+mod turn_server;
+mod handler;
 
+#[allow(dead_code)]
 async fn index() -> impl Responder {
     NamedFile::open_async("./static/index.html").await.unwrap()
 }
@@ -66,7 +69,7 @@ async fn forward(
     let mut new_url = (**url).clone();
     new_url.set_path(req.uri().path());
     new_url.set_query(req.uri().query());
-    println!("new_url:{}", new_url);
+    println!("new_url: {}", new_url);
     let forwarded_req = client
         .request_from(new_url.as_str(), req.head())
         .no_decompress();
@@ -97,6 +100,9 @@ async fn forward(
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
+    actix_web::rt::spawn(async {
+        turn_server::start("192.168.0.179", "3478", "user=pass", "192.168.0.179:8433").await
+    });
     let config = load_rustls_config();
 
     log::info!("starting HTTPS server at https://localhost:8443");

@@ -23,3 +23,5 @@ tokio-stream = "0.1.14"
 serde = { version="1.0.163", features = ["derive"]}
 json = "0.12.4"
 serde_json = "1.0.96"
+turn = "0.6.1"
+webrtc-util = { version="0.7.0", default-features = false, features = ["conn", "vnet"]}
