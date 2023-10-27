@@ -3,22 +3,23 @@ import Paper from '@mui/material/Paper';
 import InputBase from '@mui/material/InputBase';
 import Divider from '@mui/material/Divider';
 import IconButton from '@mui/material/IconButton';
-import MenuIcon from '@mui/icons-material/Menu';
-import SearchIcon from '@mui/icons-material/Search';
+import SendOutlinedIcon from '@mui/icons-material/SendOutlined';
 import MissedVideoCallIcon from '@mui/icons-material/MissedVideoCall';
-import DirectionsIcon from '@mui/icons-material/Directions';
+import NoteAddOutlinedIcon from '@mui/icons-material/NoteAddOutlined';
 import {useCallback, useState} from "react";
 
 
 export default function MsgInput(props) {
-    const {onSend= (msg)=> {}, onVideo = () => {}} = props;
+    const {
+        onSend= (msg)=> {},
+        onVideo = () => {},
+        onFile = () => {},
+    } = props;
     const [msg, setMsg] = useState('');
 
     const onChange = useCallback((e) => {
-        console.log(e);
         const value = e.target.value;
-        setMsg(value)
-        _onSend(value);
+        setMsg(value);
     }, [])
     function _onSend(msg) {
         if(msg.length > 0 && onSend(msg)) {
@@ -42,11 +43,19 @@ export default function MsgInput(props) {
                 onChange={onChange}
             />
             <IconButton type="button" sx={{ p: '10px' }} aria-label="send" onClick={onClick}>
-                <SearchIcon />
+                <SendOutlinedIcon />
             </IconButton>
             <Divider orientation="vertical"/>
-            <IconButton type="button" sx={{ p: '10px' }} aria-label="send" onClick={onVideo}>
+            <IconButton type="button" sx={{ p: '10px' }} aria-label="video" onClick={onVideo}>
                 <MissedVideoCallIcon />
+            </IconButton>
+            <IconButton component="label" variant="contained" sx={{p: '10px'}} aria-label="file">
+                <NoteAddOutlinedIcon/>
+                <input
+                    type="file"
+                    hidden
+                    onChange={onFile}
+                />
             </IconButton>
         </Paper>
     );

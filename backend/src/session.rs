@@ -22,11 +22,11 @@ const JOINED_MSG_NAME: &str = "JoinedMsg";
 struct JoinedMsg {
     name: String,
     room_no:String,
-    id:usize,
+    id: u32,
 }
 
 impl JoinedMsg {
-    pub fn new(room_no:String, id:usize) -> Self {
+    pub fn new(room_no:String, id:u32) -> Self {
         Self {
             name: JOINED_MSG_NAME.to_string(),
             room_no,
@@ -38,12 +38,12 @@ impl JoinedMsg {
 struct MsgWithName {
     name: String,
     room_no:String,
-    id:usize,
+    id:u32,
     msg:String
 }
 impl MsgWithName {
     #[allow(dead_code)]
-    pub fn new(room_no:String, id:usize, name: String, msg: String) -> Self {
+    pub fn new(room_no:String, id:u32, name: String, msg: String) -> Self {
          Self {
              name,
              room_no,
@@ -57,11 +57,11 @@ const ERROR_MSG_NAME: &str = "ErrorMsg";
 struct ErrorMsg {
     name: String,
     room_no:String,
-    id:usize,
+    id:u32,
     msg: String,
 }
 impl ErrorMsg {
-    pub  fn new(room_no: String, id:usize, msg:String) -> Self {
+    pub  fn new(room_no: String, id:u32, msg:String) -> Self {
         Self {
             name: ERROR_MSG_NAME.to_string(),
             room_no,
@@ -75,12 +75,12 @@ const ROOM_MSG_NAME: &str = "RoomMsg";
 struct RoomMsg {
     name: String,
     room_no:String,
-    from:usize,
+    from:u32,
     msg: String,
 }
 
 impl RoomMsg {
-    pub fn new(room_no:String, from: usize, msg: String) -> Self {
+    pub fn new(room_no:String, from: u32, msg: String) -> Self {
         Self {
             name: ROOM_MSG_NAME.to_string(),
             room_no,
@@ -96,7 +96,7 @@ impl RoomMsg {
 #[derive(Debug)]
 pub struct WsChatSession {
     /// unique session id
-    pub id: usize,
+    pub id: u32,
 
     /// Client must send ping at least once per 10 seconds (CLIENT_TIMEOUT),
     /// otherwise we drop connection.
@@ -236,13 +236,15 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
                             // of rooms back
                         }
                         "/join" => {
+                            println!("join!  args:{:?}", v);
                             if v.len() == 2 {
                                 self.room = v[1].to_owned();
                                 self.addr.do_send(server::Join {
                                     id: self.id,
-                                    name: self.room.clone(),
+                                    name: self.room.to_string(),
                                 });
-                                let joined_msg = JoinedMsg::new(self.room.clone(), self.id.clone());
+                                log::info!("self id:{} room name:{:?}", self.id, self.room);
+                                let joined_msg = JoinedMsg::new(self.room.to_string(), self.id);
                                 ctx.text(serde_json::to_string(&joined_msg).unwrap());
 
                             } else {
@@ -283,7 +285,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
                     self.addr.do_send(server::ClientMessage {
                         id: self.id,
                         msg,
-                        room: self.room.clone(),
+                        room: self.room.to_string(),
 
                     })
                 }

@@ -1,5 +1,4 @@
 //端点对象
-import {console} from "next/dist/compiled/@edge-runtime/primitives/console";
 
 let rtcPeerConnection;
 

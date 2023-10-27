@@ -92,3 +92,4 @@ class Eventbus {
         delete this.eventObject[eventName];
     }
 }
+export default Eventbus;

@@ -1,8 +1,6 @@
 
 // File Transfer
 import {withPeerConnection} from "@/util/withPeerConnection";
-import {console} from "next/dist/compiled/@edge-runtime/primitives/console";
-
 export const MSG_NAME_SEND_FILE_REQ = 'MsgNameSendFileReq';
 export const MSG_NAME_RECEIVE_FILE = 'MsgNameReceiveFile';
 export const MSG_NAME_REJECT_FILE = 'MsgNameRejectFile';

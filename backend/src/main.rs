@@ -3,7 +3,7 @@
 //! Open `http://localhost:8080/` in browser to test.
 use std::{fs::File, io::BufReader};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Instant;
 use actix::Addr;
 use actix::Actor;
@@ -34,15 +34,17 @@ async fn chat_route(
     path: web::Path<String>,
     req: HttpRequest,
     stream: web::Payload,
-    _session_id_seq: web::Data<Arc<AtomicU64>>,
+    session_id_seq: web::Data<Arc<AtomicU32>>,
     srv: web::Data<Addr<server::ChatServer>>,
 ) -> Result<HttpResponse, Error> {
-    let _room_no = path.into_inner();
+    let room_no = path.into_inner();
+    let session_id = session_id_seq.fetch_add(1, Ordering::SeqCst);
+    log::info!("room_no:{}, session_id:{}", room_no, session_id);
     ws::start(
         session::WsChatSession {
-            id: 0,
+            id: session_id,
             hb: Instant::now(),
-            room: "main".to_string(),
+            room: room_no,
             name: None,
             addr: srv.get_ref().clone(),
         },
@@ -51,7 +53,7 @@ async fn chat_route(
     )
 }
 
-async fn get_count(count: web::Data<AtomicUsize>) -> impl Responder {
+async fn get_count(count: web::Data<AtomicU32>) -> impl Responder {
     let current_count = count.load(Ordering::SeqCst);
     format!("Visitors: {current_count}")
 }
@@ -106,9 +108,9 @@ async fn main() -> std::io::Result<()> {
     let config = load_rustls_config();
 
     log::info!("starting HTTPS server at https://localhost:8443");
-    let session_id_seq = Arc::new(AtomicU64::new(0));
+    let session_id_seq = Arc::new(AtomicU32::new(0));
     // start chat server actor
-    let visitor_count = Arc::new(AtomicUsize::new(0));
+    let visitor_count = Arc::new(AtomicU32::new(0));
     let server = server::ChatServer::new(visitor_count.clone()).start();
     let forward_url = format!("http://localhost:3000");
     let forward_url = Url::parse(&forward_url).unwrap();

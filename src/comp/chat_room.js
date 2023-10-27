@@ -1,8 +1,9 @@
+'use client'
 import Box from "@mui/material/Box";
 import Link from "next/link";
 import {Button, Drawer, Typography} from "@mui/material";
 import MsgInput from "@/comp/msg_input";
-import {useEffect, useRef, useState} from "react";
+import {useEffect, useMemo, useRef, useState} from "react";
 import {
     bindOnIceCandidate,
     bindOnTrack, createAnswer,
@@ -11,13 +12,23 @@ import {
     openLocalMedia, saveIceCandidate,
     saveSdp
 } from "@/util/webrtc_util";
+import {useFiles} from "@/hooks/useFiles";
+import {withPeerConnection} from "@/util/withPeerConnection";
+import {FileTransfer} from "@/util/file_transfer";
+import Chat, {EVENT_ROOM_MSG} from "@/util/chat";
+import {isJson} from "@/util/str_util";
+
 let socket;
+let chat;
+let fileTransfer;
 function connect(roomNo, setConnStatus, onMessage) {
-    disconnect(setConnStatus)
-    const { location } = window
-    const proto = location.protocol.startsWith('https') ? 'wss' : 'ws'
-    const wsUri = `${proto}://${location.host}/chat/ws/room/` + roomNo;
-    socket = new WebSocket(wsUri)
+    if(typeof window !== 'undefined') {
+        disconnect(setConnStatus)
+        const { location } = window
+        const proto = location.protocol.startsWith('https') ? 'wss' : 'ws'
+        const wsUri = `${proto}://${location.host}/chat/ws/room/` + roomNo;
+        socket = new WebSocket(wsUri)
+    }
     socket.onopen = () => {
         setConnStatus(true);
         socket.send("/join " + roomNo);
@@ -61,12 +72,30 @@ const ChatRoom = (props) => {
     const [showVideo, setShowVideo] = useState(false);
     const localVideoRef = useRef();
     const remoteVideoRef = useRef();
+    const [onSelectedFile, onRemoveFile, findFileByPath] = useFiles();
     function onVideo() {
         setShowVideo(true);
         sendCmd(MsgNameStartVideo);
     }
+    function onFile(e) {
+        let file_info = onSelectedFile(e);
+        console.log('file_info:', file_info);
+    }
     useEffect(() => {
-        connect(roomNo, setConnStatus, (msgEvt) => {
+        console.log('rooNO:', roomNo, ' chat:', chat)
+        if(roomNo && !chat) {
+            chat = withPeerConnection(new Chat(roomNo));
+            fileTransfer = new FileTransfer(chat);
+            chat.connect();
+            let eventbus = chat.eventbus;
+            eventbus.subscribe(EVENT_ROOM_MSG, (content, isMine, from) => {
+                if(!isJson(content)) {
+                    let id = new Date().getTime() + '';
+                    setMsgs((pre) => pre.concat([{from, content, id}]))
+                }
+            })
+        }
+        /*connect(roomNo, setConnStatus, (msgEvt) => {
             let data = msgEvt.data;
             try {
                 let msg = JSON.parse(data);
@@ -177,14 +206,11 @@ const ChatRoom = (props) => {
                 console.log('msgEvt', msgEvt);
             }
 
-        })
-    }, [])
+        })*/
+    }, [roomNo])
     function onSend(msg) {
-        if(connStatus) {
-            socket.send(msg)
-            return true;
-        }
-        return false;
+        chat.sendMsg(msg);
+        return true;
     }
 
     return (<Box
@@ -257,7 +283,7 @@ const ChatRoom = (props) => {
                     my:1,
                 }}>
                     <Typography>
-                        {msg.msg}
+                        {msg.content}
                     </Typography>
                 </Box>)
             })}
@@ -267,7 +293,7 @@ const ChatRoom = (props) => {
             alignSelf: 'center',
             justifySelf:'center',
         }}>
-            <MsgInput onSend={onSend} onVideo={onVideo}></MsgInput>
+            <MsgInput onSend={onSend} onVideo={onVideo} onFile={onFile}></MsgInput>
         </Box>
     </Box>);
 }

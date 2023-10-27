@@ -1,6 +1,4 @@
 import {getIceServers, offerOptions} from "@/util/config";
-import {console} from "next/dist/compiled/@edge-runtime/primitives/console";
-
 export const MSG_NAME_CANDIDATE_CHANGE = 'MsgNameCandidateChange';
 export const MSG_NAME_OFFER_SDP_CHANGE = 'MsgNameOfferSDPChange';
 export const MSG_NAME_ANSWER_SDP_CHANGE = 'MsgNameAnswerSDPChange';
@@ -53,5 +51,6 @@ export const withPeerConnection=(chat) => {
             })
             .catch(() => console.log('createAnswer fail'))
     }
+    chat.eventbus.subscribe()
     return chat;
 }

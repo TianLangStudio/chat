@@ -1,43 +1,48 @@
-import {
-    bindOnIceCandidate,
-    bindOnTrack, createAnswer,
-    createOffer,
-    createPeerConnection,
-    openLocalMedia, saveIceCandidate,
-    saveSdp
-} from "@/util/webrtc_util";
-import {getIceServers, offerOptions} from "@/util/config";
-import {console} from "next/dist/compiled/@edge-runtime/primitives/console";
-
-const MsgNameStartVideo = "StartVideo";
-const MsgNameSendOffer ="SendOffer";
-const MsgNameSendAnswer="SendAnswer";
-const MsgNameSendCandidate="SendCandidate";
+import Eventbus from "@/util/eventbus";
+import eventbus from "@/util/eventbus";
 const roomBaseUrl = 'chat/ws/room';
+//args is_connected:bool
+const EVENT_CONN_STATUS_CHANGE = "EVENT_CONN_STATUS_CHANGE";
+//args msgContent, isMineMsg, msgFrom
+export const EVENT_ROOM_MSG = "RoomMsg";
 class Chat{
     constructor(roomNo) {
-        const { location } = window
-        const proto = location.protocol.startsWith('https') ? 'wss' : 'ws'
-        const wsUri = `${proto}://${location.host}/${roomBaseUrl}/` + roomNo;
-        this.socket = new WebSocket(wsUri);
         this.roomNo = roomNo;
         this.sessionId = 0;
-        this.registerSocketEvent();
         this.eventbus = new Eventbus();
+    }
+    connect() {
+        const { location } = window
+        const proto = location.protocol.startsWith('https') ? 'wss' : 'ws'
+        const wsUri = `${proto}://${location.host}/${roomBaseUrl}/` + this.roomNo;
+        this.socket = new WebSocket(wsUri);
+        this.registerSocketEvent();
+    }
+    sendMsg(msg) {
+        if(this.socket.readyState === this.socket.OPEN) {
+            this.eventbus.publish(EVENT_CONN_STATUS_CHANGE, true);
+            this.socket.send(msg);
+        } else {
+            this.eventbus.publish(EVENT_CONN_STATUS_CHANGE, false);
+            setTimeout(() => {this.sendMsg(msg)}, 500)
+        }
     }
     sendCmd(name, payload) {
         let msg = {
             name: name,
             body: payload || '',
             from: this.sessionId,
-        }
-        this.socket.send(JSON.stringify(msg))
+        };
+        console.log("msg:", msg);
+        this.sendMsg(JSON.stringify(msg));
     }
 
     registerSocketEvent() {
         this.socket.onopen = () => {
-            this.onConnStatusChange(true);
-            this.socket.send("/join " + this.roomNo);
+            this.eventbus.publish(EVENT_CONN_STATUS_CHANGE, false);
+            //this.socket.send("/join " + this.roomNo);
+            console.log("onopen this:", this);
+            this.roomNo && this.sendMsg('/join ' + this.roomNo);
         }
 
         this.socket.onmessage = (ev) => {
@@ -57,12 +62,13 @@ class Chat{
             switch (name) {
                 case 'JoinedMsg':
                     this.sessionId = msg.id;
-                    console.log('sessionId', msg.id);
+                    console.log('JoinedMsg:', msg);
+                    this.eventbus.publish(EVENT_CONN_STATUS_CHANGE, true);
                     break;
                 case 'RoomMsg':
                     let msgContent = msg.msg;
                     let msgFrom = msg.from;
-                    let msgName = '';
+                    /*let msgName = '';
                     let msgValue = '';
                     try {
                         let msgNameAndValue = JSON.parse(msgContent);
@@ -70,11 +76,10 @@ class Chat{
                         msgValue = msgNameAndValue.payload;
                     }catch (e) {
                         console.warn('not json:' + msgContent, e);
-                    }
-                    let isMineMsg = msgFrom == this.sessionId;
+                    }*/
+                    let isMineMsg = msgFrom === this.sessionId;
                     console.log('msgFrom:', msgFrom, 'sessionId:', this.sessionId, 'isMineMsg:', isMineMsg)
-                    console.log('name:', msgName, 'value:', msgValue);
-                    this.eventbus.publish(msgName, msgValue, isMineMsg, msgFrom)
+                    this.eventbus.publish(EVENT_ROOM_MSG, msgContent, isMineMsg, msgFrom)
                     //{from:msgFrom, msg: msgContent, id: new Date().getTime() + ''}
                     break;
                 case 'ErrorMsg':
@@ -85,9 +90,6 @@ class Chat{
             console.error('err:', e);
             console.log('msgEvt', msgEvt);
         }
-    }
-    onShowMessage(msg) {
-
     }
     onConnStatusChange(isConn) {
 
