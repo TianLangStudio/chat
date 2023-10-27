@@ -51,7 +51,7 @@ class Chat{
 
         this.socket.onclose = () => {
             this.socket = null;
-            this.onConnStatusChange(false)
+            this.eventbus.publish(EVENT_CONN_STATUS_CHANGE, false);
         }
     }
     messageHandler(msgEvt) {
@@ -63,6 +63,7 @@ class Chat{
                 case 'JoinedMsg':
                     this.sessionId = msg.id;
                     console.log('JoinedMsg:', msg);
+                    this._ping();
                     this.eventbus.publish(EVENT_CONN_STATUS_CHANGE, true);
                     break;
                 case 'RoomMsg':
@@ -91,8 +92,12 @@ class Chat{
             console.log('msgEvt', msgEvt);
         }
     }
-    onConnStatusChange(isConn) {
-
+    _ping() {
+        //this.sendMsg("/ping");
+        this.socket.ping();
+        setTimeout(() => {
+            this._ping();
+        }, 3000);
     }
 }
 

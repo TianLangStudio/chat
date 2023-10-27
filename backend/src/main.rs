@@ -18,6 +18,9 @@ use rustls_pemfile::{certs, pkcs8_private_keys};
 use actix_web_actors::ws;
 use crate::server::ChatServer;
 use awc::Client;
+use env_logger::Builder;
+use log::LevelFilter;
+
 //mod handler;
 mod server;
 mod session;
@@ -71,7 +74,7 @@ async fn forward(
     let mut new_url = (**url).clone();
     new_url.set_path(req.uri().path());
     new_url.set_query(req.uri().query());
-    println!("new_url: {}", new_url);
+    //println!("new_url: {}", new_url);
     let forwarded_req = client
         .request_from(new_url.as_str(), req.head())
         .no_decompress();
@@ -101,7 +104,17 @@ async fn forward(
 }
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
+    let mut log_builder = Builder::new();
+    log_builder
+        .filter(None, LevelFilter::Off)
+        //.filter(Some("rustls::conn"), LevelFilter::Off)
+        .filter(Some("chat_backend"), LevelFilter::Info)
+        .init();
+    log::debug!("debug log enabled");
+    log::info!("info log enabled");
+    log::warn!("warn log enabled");
+    log::error!("error log enabled");
+   // env_logger::init_from_env(env_logger::Env::new().default_filter_or("Info"));
     actix_web::rt::spawn(async {
         turn_server::start("192.168.0.179", "3478", "user=pass", "192.168.0.179:8433").await
     });
@@ -128,7 +141,7 @@ async fn main() -> std::io::Result<()> {
            // .service(web::resource("/").to(index))
             .default_service(web::to(forward))
             // enable logger
-            .wrap(middleware::Logger::default())
+           // .wrap(middleware::Logger::default())
 
     })
     .workers(2)
