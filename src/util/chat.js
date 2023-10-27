@@ -93,8 +93,8 @@ class Chat{
         }
     }
     _ping() {
-        //this.sendMsg("/ping");
-        this.socket.ping();
+        this.sendMsg(`/ping ${this.sessionId}`);
+        //this.socket.ping();
         setTimeout(() => {
             this._ping();
         }, 3000);

@@ -21,6 +21,12 @@ export default function MsgInput(props) {
         const value = e.target.value;
         setMsg(value);
     }, [])
+    const keyDownHandler = useCallback((e) => {
+        console.log('onKeyDownHandler:', e);
+        if(e.keyCode === 13) {
+            _onSend(msg);
+        }
+    }, [msg]);
     function _onSend(msg) {
         if(msg.length > 0 && onSend(msg)) {
             setMsg('');
@@ -37,10 +43,13 @@ export default function MsgInput(props) {
         >
             <InputBase
                 sx={{ ml: 1, flex: 1 }}
-                placeholder="there put input your message"
-                inputProps={{ 'aria-label': 'there put input your message' }}
+                placeholder="There put your message!"
+                inputProps={{
+                    'aria-label': 'there put input your message'
+                }}
                 value={msg}
                 onChange={onChange}
+                onKeyDown = {keyDownHandler}
             />
             <IconButton type="button" sx={{ p: '10px' }} aria-label="send" onClick={onClick}>
                 <SendOutlinedIcon />

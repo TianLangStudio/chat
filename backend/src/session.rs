@@ -212,6 +212,10 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
                 if m.starts_with('/') {
                     let v: Vec<&str> = m.splitn(2, ' ').collect();
                     match v[0] {
+                        "/ping" => {
+                            self.hb = Instant::now();
+                            ctx.pong(b"");
+                        }
                         "/list" => {
                             // Send ListRooms message to chat server and wait for
                             // response
