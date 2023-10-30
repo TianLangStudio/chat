@@ -17,6 +17,7 @@ import {withPeerConnection} from "@/util/withPeerConnection";
 import {FileTransfer} from "@/util/file_transfer";
 import Chat, {EVENT_ROOM_MSG} from "@/util/chat";
 import {isJson} from "@/util/str_util";
+import TextMsg, {createTextMsg} from "@/comp/msg/TextMsg";
 
 let socket;
 let chat;
@@ -89,9 +90,11 @@ const ChatRoom = (props) => {
             chat.connect();
             let eventbus = chat.eventbus;
             eventbus.subscribe(EVENT_ROOM_MSG, (content, isMine, from) => {
+                let id = new Date().getTime() + '';
+                let msgInfo = {from, content, id};
                 if(!isJson(content)) {
-                    let id = new Date().getTime() + '';
-                    setMsgs((pre) => pre.concat([{from, content, id}]))
+                    let textMsg = createTextMsg(msgInfo);
+                    setMsgs((pre) => pre.concat([textMsg]))
                 }
             })
         }
@@ -282,9 +285,7 @@ const ChatRoom = (props) => {
                     mx:3,
                     my:1,
                 }}>
-                    <Typography>
-                        {msg.content}
-                    </Typography>
+                    { msg.render()}
                 </Box>)
             })}
         </Box>
