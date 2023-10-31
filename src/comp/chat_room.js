@@ -14,10 +14,11 @@ import {
 } from "@/util/webrtc_util";
 import {useFiles} from "@/hooks/useFiles";
 import {withPeerConnection} from "@/util/withPeerConnection";
-import {FileTransfer} from "@/util/file_transfer";
-import Chat, {EVENT_ROOM_MSG} from "@/util/chat";
+import {FileTransfer, MSG_NAME_RECEIVE_FILE, MSG_NAME_SEND_FILE_REQ} from "@/util/file_transfer";
+import Chat, {EVENT_CONN_STATUS_CHANGE, EVENT_ROOM_MSG} from "@/util/chat";
 import {isJson} from "@/util/str_util";
 import TextMsg, {createTextMsg} from "@/comp/msg/TextMsg";
+import {createSendFileReqMsg} from "@/comp/msg/SendFileReqMsg";
 
 let socket;
 let chat;
@@ -79,13 +80,17 @@ const ChatRoom = (props) => {
         sendCmd(MsgNameStartVideo);
     }
     function onFile(e) {
-        let file_info = onSelectedFile(e);
-        console.log('file_info:', file_info);
+        let fileInfo = onSelectedFile(e);
+        console.log('fileInfo:', fileInfo);
+        let size = fileInfo.file.size;
+        let path = fileInfo.path;
+        let name = fileInfo.file.name;
+        fileTransfer.sendFileReq(path, name, size, fileInfo.file);
     }
     useEffect(() => {
         console.log('rooNO:', roomNo, ' chat:', chat)
         if(roomNo && !chat) {
-            chat = withPeerConnection(new Chat(roomNo));
+            chat = new Chat(roomNo);
             fileTransfer = new FileTransfer(chat);
             chat.connect();
             let eventbus = chat.eventbus;
@@ -94,8 +99,22 @@ const ChatRoom = (props) => {
                 let msgInfo = {from, content, id};
                 if(!isJson(content)) {
                     let textMsg = createTextMsg(msgInfo);
-                    setMsgs((pre) => pre.concat([textMsg]))
+                    setMsgs((pre) => pre.concat([textMsg]));
+                }else {
+                    let jsonMsg = JSON.parse(content);
+                    let name = jsonMsg.name;
+                    if(name === MSG_NAME_SEND_FILE_REQ) {
+                        let sendFileReqMsg = createSendFileReqMsg({...jsonMsg, chat, id});
+                        setMsgs((pre) => pre.concat([sendFileReqMsg]));
+                    }else if(name.startsWith(MSG_NAME_RECEIVE_FILE)) {
+                        eventbus.publish(name, {...jsonMsg.body, id});
+                    }
+                    console.log('jsonMsg:', jsonMsg);
                 }
+            })
+
+            eventbus.subscribe(EVENT_CONN_STATUS_CHANGE, (isConnected) => {
+                setConnStatus(isConnected);
             })
         }
         /*connect(roomNo, setConnStatus, (msgEvt) => {

@@ -16,7 +16,7 @@ export const withPeerConnection=(chat) => {
             chat._peerConn.onicecandidate = (event) => {
                 if (event.candidate) {
                     chat._peerConnCandidates.push(event.candidate);
-                    chat.eventbus.publish(MSG_NAME_CANDIDATE_CHANGE, chat._peerConnCandidates)
+                    //chat.eventbus.publish(MSG_NAME_CANDIDATE_CHANGE, chat._peerConnCandidates)
                 }
             };
         }
@@ -25,7 +25,7 @@ export const withPeerConnection=(chat) => {
 
     chat.createOffer = (callback) => {
         if(chat._offerSdp) {
-            chat.eventbus.publish(MSG_NAME_OFFER_SDP_CHANGE, chat._offerSdp);
+            //chat.eventbus.publish(MSG_NAME_OFFER_SDP_CHANGE, chat._offerSdp);
             callback(chat._offerSdp);
             return;
         }
@@ -34,7 +34,7 @@ export const withPeerConnection=(chat) => {
                 chat._offerSdp = sdp;
                 chat.getPeerConn().setLocalDescription(sdp)
                     .then(() => {
-                        chat.eventbus.publish(MSG_NAME_OFFER_SDP_CHANGE, sdp);
+                        //chat.eventbus.publish(MSG_NAME_OFFER_SDP_CHANGE, sdp);
                         callback(sdp);
                     });
             })
@@ -45,12 +45,11 @@ export const withPeerConnection=(chat) => {
             .then(sdp => {
                 chat.setLocalDescription(sdp)
                     .then(() => {
-                        chat.eventbus.publish(MSG_NAME_ANSWER_SDP_CHANGE, sdp)
+                        //chat.eventbus.publish(MSG_NAME_ANSWER_SDP_CHANGE, sdp)
                         callback(sdp);
                     });
             })
             .catch(() => console.log('createAnswer fail'))
     }
-    chat.eventbus.subscribe()
     return chat;
 }

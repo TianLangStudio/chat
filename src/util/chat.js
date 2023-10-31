@@ -2,7 +2,7 @@ import Eventbus from "@/util/eventbus";
 import eventbus from "@/util/eventbus";
 const roomBaseUrl = 'chat/ws/room';
 //args is_connected:bool
-const EVENT_CONN_STATUS_CHANGE = "EVENT_CONN_STATUS_CHANGE";
+export const EVENT_CONN_STATUS_CHANGE = "EVENT_CONN_STATUS_CHANGE";
 //args msgContent, isMineMsg, msgFrom
 export const EVENT_ROOM_MSG = "RoomMsg";
 class Chat{
@@ -80,6 +80,8 @@ class Chat{
                     }*/
                     let isMineMsg = msgFrom === this.sessionId;
                     console.log('msgFrom:', msgFrom, 'sessionId:', this.sessionId, 'isMineMsg:', isMineMsg)
+                    console.log('eventbus publish EVENT_ROOM_MSG, msgContent, isMineMsg, msgFrom:',
+                        EVENT_ROOM_MSG, msgContent, isMineMsg, msgFrom )
                     this.eventbus.publish(EVENT_ROOM_MSG, msgContent, isMineMsg, msgFrom)
                     //{from:msgFrom, msg: msgContent, id: new Date().getTime() + ''}
                     break;

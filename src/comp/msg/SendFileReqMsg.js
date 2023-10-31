@@ -2,7 +2,7 @@ import {Button, Card, CardActions, CardContent, CardMedia, Typography} from "@mu
 import {useCallback} from "react";
 import {createFileTransfer} from "@/util/file_transfer";
 
-const SendFileReq = (props) => {
+const SendFileReqMsg = (props) => {
     const {
         path,
         name,
@@ -31,4 +31,17 @@ const SendFileReq = (props) => {
     </Card>)
 
 }
-export default SendFileReq;
+export default SendFileReqMsg;
+export const createSendFileReqMsg = (msgInfo) => {
+     let body = msgInfo.body || {};
+     let render = () => <SendFileReqMsg
+        path={body.path}
+        name={body.name}
+        size={body.size}
+        dsp = {body.dsp}
+        candidates = {body.candidates}
+        chat = {msgInfo.chat}
+    />;
+     return {... msgInfo, render}
+
+}

@@ -10,16 +10,17 @@ export class FileTransfer {
         this.chat = withPeerConnection(chat);
     }
     //send file
-    sendFileReq(path, name, size, contents) {
+    sendFileReq(path, name, size, file) {
         const chat = this.chat;
-        chat.eventbus.subscribeOnce(`${MSG_NAME_RECEIVE_FILE}.${path}`, (msgValue) => {
-            const payload = JSON.parse(msgValue);
+        chat.eventbus.subscribe(`${MSG_NAME_RECEIVE_FILE}.${path}`, (payload) => {
             chat.getPeerConn().setRemoteDescription(payload.sdp)
                 .then(() => {
                     console.log('setRemoteDescription success');
-                    this._createSendChannel(`File.${path}`, contents)
+                    this._createSendChannel(`File.${path}`, file)
                 })
-                .catch((e) => {console.warn('setRemoteDescription error', e);})
+                .catch((e) => {
+                    console.warn('setRemoteDescription error', e);
+                })
         })
         chat.createOffer((dsp) => {
             const candidates = chat.getPeerConnCandidates()
@@ -33,25 +34,35 @@ export class FileTransfer {
         })
     }
 
-    _createSendChannel(channelName, contents) {
+    _createSendChannel(channelName, file) {
+        console.log('create send channel name:', channelName, ' file:', file);
         const chat = this.chat;
         this.channels = this.channels || {};
         const channel = chat.getPeerConn().createDataChannel(channelName);
-        this.channels[channelName] = channel;
-
         channel.binaryType = "arraybuffer";
+        this.channels[channelName] = channel;
+        console.log('channel:', channel);
+        channel.onopen = () => {
+            console.log(channelName, ' channel onopen');
+        }
         channel.addEventListener("open", () => {
-            let offset = 0;
-            const contentLen = contents.byteLength;
-            while (offset < contentLen) {
-                console.log(`send progress: ${offset}`);
-                const sliceContents = contents.slice(
-                    offset,
-                    offset + 16384
-                );
-                channel.send(sliceContents);
-                offset += sliceContents.byteLength;
-            }
+            console.log(channelName, ' channel open');
+            file.arrayBuffer().then((contents)=> {
+                let offset = 0;
+                const contentLen = contents.byteLength;
+                while (offset < contentLen) {
+                    console.log(`send progress: ${offset}`);
+                    const sliceContents = contents.slice(
+                        offset,
+                        offset + 16384
+                    );
+                    channel.send(sliceContents);
+                    offset += sliceContents.byteLength;
+                }
+            }).catch((e) => {
+                console.error('read file to array buffer error:', e);
+            })
+
         });
         channel.addEventListener("close", () =>{
             this.channels[channelName] = undefined
@@ -59,6 +70,8 @@ export class FileTransfer {
         channel.addEventListener("error", (error) =>
             console.error("Error in sendChannel:", error)
         );
+
+
     }
     //receive file
 
@@ -92,7 +105,8 @@ export class FileTransfer {
     }
 
     receiveFileReq(remoteDsp, candidates, filePath, fileName, fileSize)  {
-        const conn = this.chat.getPeerConn();
+        const chat = this.chat;
+        const conn = chat.getPeerConn();
         this._createAnswer(remoteDsp, candidates, function (sdp) {
             conn.addEventListener("datachannel", (event) =>{
                 const receiveChannel = event.channel;
@@ -112,7 +126,7 @@ export class FileTransfer {
                 receiveChannel.onclose = () =>
                     console.log(`channel readyState: ${receiveChannel.readyState}`);
             });
-            this.chat.sendCmd(`${MSG_NAME_RECEIVE_FILE}.${filePath}`, {
+            chat.sendCmd(`${MSG_NAME_RECEIVE_FILE}.${filePath}`, {
                 sdp
             })
         })
