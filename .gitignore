@@ -36,3 +36,5 @@ next-env.d.ts
 .idea/
 target/
 build/
+
+certificates/

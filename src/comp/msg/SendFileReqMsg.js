@@ -10,6 +10,7 @@ const SendFileReqMsg = (props) => {
         dsp,
         candidates,
         chat,
+        isMine = false,
     } = props;
     const onReceiveFile = useCallback(() => {
         const fileTransfer = createFileTransfer(chat);
@@ -21,13 +22,13 @@ const SendFileReqMsg = (props) => {
                 {name} {size}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-                Receive the file or not?
+                {isMine?'File send request has been sent':'Receive the file or not?'}
             </Typography>
         </CardContent>
-        <CardActions>
+        {!isMine && <CardActions>
             <Button size="small" onClick={onReceiveFile}>Yes</Button>
             <Button size="small">No</Button>
-        </CardActions>
+        </CardActions>}
     </Card>)
 
 }
@@ -41,6 +42,7 @@ export const createSendFileReqMsg = (msgInfo) => {
         dsp = {body.dsp}
         candidates = {body.candidates}
         chat = {msgInfo.chat}
+        isMine = {msgInfo.isMine}
     />;
      return {... msgInfo, render}
 

@@ -1,5 +1,6 @@
 import Eventbus from "@/util/eventbus";
 import eventbus from "@/util/eventbus";
+import {API_SERVER} from "@/util/config";
 const roomBaseUrl = 'chat/ws/room';
 //args is_connected:bool
 export const EVENT_CONN_STATUS_CHANGE = "EVENT_CONN_STATUS_CHANGE";
@@ -8,18 +9,18 @@ export const EVENT_ROOM_MSG = "RoomMsg";
 class Chat{
     constructor(roomNo) {
         this.roomNo = roomNo;
-        this.sessionId = 0;
+        this.sessionId = '';
         this.eventbus = new Eventbus();
     }
     connect() {
-        const { location } = window
-        const proto = location.protocol.startsWith('https') ? 'wss' : 'ws'
-        const wsUri = `${proto}://${location.host}/${roomBaseUrl}/` + this.roomNo;
+        //const { location } = window
+        //const proto = location.protocol.startsWith('https') ? 'wss' : 'ws'
+        const wsUri = `wss://${API_SERVER}/${roomBaseUrl}/${this.roomNo}`;
         this.socket = new WebSocket(wsUri);
         this.registerSocketEvent();
     }
     sendMsg(msg) {
-        if(this.socket.readyState === this.socket.OPEN) {
+        if(this.socket && this.socket.readyState === this.socket.OPEN) {
             this.eventbus.publish(EVENT_CONN_STATUS_CHANGE, true);
             this.socket.send(msg);
         } else {
@@ -41,7 +42,7 @@ class Chat{
         this.socket.onopen = () => {
             this.eventbus.publish(EVENT_CONN_STATUS_CHANGE, false);
             //this.socket.send("/join " + this.roomNo);
-            console.log("onopen this:", this);
+            console.log('connect to ws success');
             this.roomNo && this.sendMsg('/join ' + this.roomNo);
         }
 
@@ -52,6 +53,9 @@ class Chat{
         this.socket.onclose = () => {
             this.socket = null;
             this.eventbus.publish(EVENT_CONN_STATUS_CHANGE, false);
+        }
+        this.socket.onerror = (e) => {
+            console.error('connect to ws fail ', e);
         }
     }
     messageHandler(msgEvt) {

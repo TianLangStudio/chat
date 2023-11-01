@@ -14,6 +14,7 @@ export default function MsgInput(props) {
         onSend= (msg)=> {},
         onVideo = () => {},
         onFile = () => {},
+        disabled = false,
     } = props;
     const [msg, setMsg] = useState('');
 
@@ -47,22 +48,24 @@ export default function MsgInput(props) {
                 inputProps={{
                     'aria-label': 'there put input your message'
                 }}
+                disabled={disabled}
                 value={msg}
                 onChange={onChange}
                 onKeyDown = {keyDownHandler}
             />
-            <IconButton type="button" sx={{ p: '10px' }} aria-label="send" onClick={onClick}>
+            <IconButton type="button" sx={{ p: '10px' }} aria-label="send" disabled={disabled} onClick={onClick}>
                 <SendOutlinedIcon />
             </IconButton>
             <Divider orientation="vertical"/>
-            <IconButton type="button" sx={{ p: '10px' }} aria-label="video" onClick={onVideo}>
+            <IconButton type="button" sx={{ p: '10px' }} aria-label="video" disabled={disabled} onClick={onVideo}>
                 <MissedVideoCallIcon />
             </IconButton>
-            <IconButton component="label" variant="contained" sx={{p: '10px'}} aria-label="file">
+            <IconButton component="label" variant="contained" sx={{p: '10px'}} disabled={disabled} aria-label="file">
                 <NoteAddOutlinedIcon/>
                 <input
                     type="file"
                     hidden
+                    disabled={disabled}
                     onChange={onFile}
                 />
             </IconButton>

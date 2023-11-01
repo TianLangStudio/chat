@@ -7,6 +7,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use actix::Addr;
 use actix::Actor;
+use actix_cors::Cors;
 use actix_files::NamedFile;
 use actix_web::{
     dev::PeerAddr, error, middleware,web, App, Error, HttpRequest, HttpResponse, HttpServer, Responder,
@@ -33,6 +34,7 @@ async fn index() -> impl Responder {
     NamedFile::open_async("./static/index.html").await.unwrap()
 }
 
+static CHAT_SESSION_ID_COOKIE: &str = "chat_session_id";
 /// Entry point for our websocket route
 async fn chat_route(
     path: web::Path<String>,
@@ -41,7 +43,14 @@ async fn chat_route(
     srv: web::Data<Addr<server::ChatServer>>,
 ) -> Result<HttpResponse, Error> {
     let room_no = path.into_inner();
-    let session_id = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos().to_string();
+
+    let session_id = if let Some(session_id) = req.cookie(CHAT_SESSION_ID_COOKIE) {
+        session_id.to_string()
+    }else {
+        let session_id = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos().to_string();
+        session_id
+    };
+
     log::info!("room_no:{}, session_id:{}", room_no, session_id);
     ws::start(
         session::WsChatSession {
@@ -74,10 +83,12 @@ async fn forward(
     let mut new_url = (**url).clone();
     new_url.set_path(req.uri().path());
     new_url.set_query(req.uri().query());
-    //println!("new_url: {}", new_url);
+    log::info!("new_url: {}", new_url);
+
     let forwarded_req = client
         .request_from(new_url.as_str(), req.head())
         .no_decompress();
+
 
     // TODO: This forwarded implementation is incomplete as it only handles the unofficial
     // X-Forwarded-For header but not the official Forwarded one.
@@ -115,9 +126,9 @@ async fn main() -> std::io::Result<()> {
     log::warn!("warn log enabled");
     log::error!("error log enabled");
    // env_logger::init_from_env(env_logger::Env::new().default_filter_or("Info"));
-    actix_web::rt::spawn(async {
+   /* actix_web::rt::spawn(async {
         turn_server::start("192.168.0.179", "3478", "user=pass", "192.168.0.179:8433").await
-    });
+    });*/
     let config = load_rustls_config();
 
     log::info!("starting HTTPS server at https://localhost:8443");
@@ -127,7 +138,18 @@ async fn main() -> std::io::Result<()> {
     let forward_url = format!("http://localhost:3000");
     let forward_url = Url::parse(&forward_url).unwrap();
     HttpServer::new(move || {
+        let cors = Cors::permissive();
+           /*Cors::default().allowed_origin("https://www.rust-lang.org")
+            .allowed_origin_fn(|origin, _req_head| {
+                origin.as_bytes().ends_with(b".rust-lang.org")
+            })
+            .allowed_methods(vec!["GET", "POST"])
+            .allowed_headers(vec![http::header::AUTHORIZATION, http::header::ACCEPT])
+            .allowed_header(http::header::CONTENT_TYPE)
+            .max_age(3600);*/
+
         App::new()
+             .wrap(cors)
             .app_data(web::Data::new(Client::default()))
             .app_data(web::Data::new(forward_url.clone()))
             .app_data(web::Data::new(visitor_count.clone()))
@@ -138,8 +160,9 @@ async fn main() -> std::io::Result<()> {
             // WebSocket UI HTML file
            // .service(web::resource("/").to(index))
             .default_service(web::to(forward))
-            // enable logger
-           // .wrap(middleware::Logger::default())
+
+             //enable logger
+           .wrap(middleware::Logger::default())
     })
     .workers(2)
      .bind_rustls("0.0.0.0:8443", config)?

@@ -95,8 +95,8 @@ const ChatRoom = (props) => {
             chat.connect();
             let eventbus = chat.eventbus;
             eventbus.subscribe(EVENT_ROOM_MSG, (content, isMine, from) => {
-                let id = new Date().getTime() + '';
-                let msgInfo = {from, content, id};
+                let id = new Date().getTime() + from;
+                let msgInfo = {from, isMine, content, id};
                 if(!isJson(content)) {
                     let textMsg = createTextMsg(msgInfo);
                     setMsgs((pre) => pre.concat([textMsg]));
@@ -104,10 +104,10 @@ const ChatRoom = (props) => {
                     let jsonMsg = JSON.parse(content);
                     let name = jsonMsg.name;
                     if(name === MSG_NAME_SEND_FILE_REQ) {
-                        let sendFileReqMsg = createSendFileReqMsg({...jsonMsg, chat, id});
+                        let sendFileReqMsg =  createSendFileReqMsg({...msgInfo, ...jsonMsg, chat});
                         setMsgs((pre) => pre.concat([sendFileReqMsg]));
                     }else if(name.startsWith(MSG_NAME_RECEIVE_FILE)) {
-                        eventbus.publish(name, {...jsonMsg.body, id});
+                        eventbus.publish(name, {...msgInfo, ...jsonMsg.body});
                     }
                     console.log('jsonMsg:', jsonMsg);
                 }
@@ -295,12 +295,15 @@ const ChatRoom = (props) => {
             my:3,
             flexGrow: 1,
             width:'100%',
+            overflowY: 'auto',
         }}>
             {msgs.map((msg) => {
                 return (<Box key={msg.id} sx={{
-                    maxWidth:'80%',
-                    alignSelf: msg.from === sessionId?'flex-end':'flex-start',
-                    justifySelf: msg.from === sessionId?'flex-end':'flex-start',
+                    display:'flex',
+                    width:'400px',
+                    alignSelf: msg.isMine?'flex-end':'flex-start',
+                    border: 'solid 1px darkslategray',
+                    borderRadius: 1,
                     mx:3,
                     my:1,
                 }}>
@@ -313,7 +316,7 @@ const ChatRoom = (props) => {
             alignSelf: 'center',
             justifySelf:'center',
         }}>
-            <MsgInput onSend={onSend} onVideo={onVideo} onFile={onFile}></MsgInput>
+            <MsgInput disabled={!connStatus} onSend={onSend} onVideo={onVideo} onFile={onFile}></MsgInput>
         </Box>
     </Box>);
 }

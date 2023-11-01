@@ -1,4 +1,5 @@
 //chat
+export const API_SERVER = "127.0.0.1:8443";
 //webrtc
 const iceServers = {
     "iceServers": [
@@ -14,5 +15,7 @@ export const offerOptions = {
     iceRestart: true,
     offerToReceiveAudio: true, //由于没有麦克风，所有如果请求音频，会报错，不过不会影响视频流播放
 };
+
+
 
 
