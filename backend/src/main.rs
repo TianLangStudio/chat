@@ -4,13 +4,14 @@
 use std::{fs::File, io::BufReader};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::time::Instant;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 use actix::Addr;
 use actix::Actor;
 use actix_files::NamedFile;
 use actix_web::{
     dev::PeerAddr, error, middleware,web, App, Error, HttpRequest, HttpResponse, HttpServer, Responder,
 };
+use actix_web::cookie::time::macros::time;
 use url::Url;
 
 use rustls::{Certificate, PrivateKey, ServerConfig};
@@ -37,11 +38,10 @@ async fn chat_route(
     path: web::Path<String>,
     req: HttpRequest,
     stream: web::Payload,
-    session_id_seq: web::Data<Arc<AtomicU32>>,
     srv: web::Data<Addr<server::ChatServer>>,
 ) -> Result<HttpResponse, Error> {
     let room_no = path.into_inner();
-    let session_id = session_id_seq.fetch_add(1, Ordering::SeqCst);
+    let session_id = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos().to_string();
     log::info!("room_no:{}, session_id:{}", room_no, session_id);
     ws::start(
         session::WsChatSession {
@@ -121,16 +121,14 @@ async fn main() -> std::io::Result<()> {
     let config = load_rustls_config();
 
     log::info!("starting HTTPS server at https://localhost:8443");
-    let session_id_seq = Arc::new(AtomicU32::new(0));
     // start chat server actor
-    let visitor_count = Arc::new(AtomicU32::new(0));
+    let visitor_count = Arc::new(AtomicU32::new(1));
     let server = server::ChatServer::new(visitor_count.clone()).start();
     let forward_url = format!("http://localhost:3000");
     let forward_url = Url::parse(&forward_url).unwrap();
     HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(Client::default()))
-            .app_data(web::Data::new(session_id_seq.clone()))
             .app_data(web::Data::new(forward_url.clone()))
             .app_data(web::Data::new(visitor_count.clone()))
             .app_data(web::Data::new(server.clone()))
@@ -142,7 +140,6 @@ async fn main() -> std::io::Result<()> {
             .default_service(web::to(forward))
             // enable logger
            // .wrap(middleware::Logger::default())
-
     })
     .workers(2)
      .bind_rustls("0.0.0.0:8443", config)?

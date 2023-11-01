@@ -16,14 +16,15 @@ use rand::{self, rngs::ThreadRng, Rng, RngCore};
 /// Chat server sends this messages to session
 #[derive(Message)]
 #[rtype(result = "()")]
-pub struct Message(pub String, pub u32);
+pub struct Message(pub String, pub String);
 
 /// Message for chat server communications
 
 /// New chat session is created
 #[derive(Message)]
-#[rtype(u32)]
+#[rtype(String)]
 pub struct Connect {
+    pub session_id: String,
     pub addr: Recipient<Message>,
 }
 
@@ -31,7 +32,7 @@ pub struct Connect {
 #[derive(Message)]
 #[rtype(result = "()")]
 pub struct Disconnect {
-    pub id: u32,
+    pub id: String,
 }
 
 /// Send message to specific room
@@ -39,11 +40,12 @@ pub struct Disconnect {
 #[rtype(result = "()")]
 pub struct ClientMessage {
     /// Id of the client session
-    pub id: u32,
+    pub id: String,
     /// Peer message
     pub msg: String,
     /// Room name
     pub room: String,
+
 }
 
 /// List of available rooms
@@ -65,7 +67,7 @@ impl actix::Message for CreateRoom {
 #[rtype(result = "()")]
 pub struct Join {
     /// Client ID
-    pub id: u32,
+    pub id: String,
 
     /// Room name
     pub name: String,
@@ -76,10 +78,10 @@ pub struct Join {
 /// Implementation is very naïve.
 #[derive(Debug)]
 pub struct ChatServer {
-    sessions: HashMap<u32, Recipient<Message>>,
-    rooms: HashMap<String, HashSet<u32>>,
-    rng: ThreadRng,
+    sessions: HashMap<String, Recipient<Message>>,
+    rooms: HashMap<String, HashSet<String>>,
     visitor_count: Arc<AtomicU32>,
+    rng: ThreadRng,
 }
 
 impl ChatServer {
@@ -91,20 +93,20 @@ impl ChatServer {
         ChatServer {
             sessions: HashMap::new(),
             rooms,
-            rng: rand::thread_rng(),
             visitor_count,
+            rng: rand::thread_rng()
         }
     }
 }
 
 impl ChatServer {
     /// Send message to all users in the room
-    fn send_message(&self, room: &str, message: &str, from_id: u32, skip_id: u32) {
+    fn send_message(&self, room: &str, message: &str, from_id: &str, skip_id: &str) {
         if let Some(sessions) = self.rooms.get(room) {
             for id in sessions {
                 if *id != skip_id {
                     if let Some(addr) = self.sessions.get(id) {
-                        addr.do_send(Message(message.to_owned(), from_id));
+                        addr.do_send(Message(message.to_owned(), from_id.to_string()));
                     }
                 }
             }
@@ -123,29 +125,26 @@ impl Actor for ChatServer {
 ///
 /// Register new session and assign unique id to this session
 impl Handler<Connect> for ChatServer {
-    type Result = u32;
+    type Result = String;
 
-    fn handle(&mut self, msg: Connect, _: &mut Context<Self>) -> Self::Result {
+    fn handle(&mut self, msg: Connect, context: &mut Context<Self>) -> Self::Result {
         println!("Someone joined");
 
         // notify all users in same room
-        self.send_message("main", "Someone joined", 0, 0);
-
-        // register session with random id
-        let id = self.rng.gen::<u32>();
-        self.sessions.insert(id, msg.addr);
+        self.send_message("main", "Someone joined", "0", "0");
+        self.sessions.insert(msg.session_id.to_string(), msg.addr);
 
         // auto join session to main room
         self.rooms
             .entry("main".to_owned())
             .or_insert_with(HashSet::new)
-            .insert(id);
+            .insert(msg.session_id.to_string());
 
         let count = self.visitor_count.fetch_add(1, Ordering::SeqCst);
-        self.send_message("main", &format!("Total visitors {count}"), 0, 0);
+        self.send_message("main", &format!("Total visitors {count}"), "0","0");
 
         // send id back
-        id
+        msg.session_id.to_string()
     }
 }
 
@@ -169,7 +168,7 @@ impl Handler<Disconnect> for ChatServer {
         }
         // send message to other users
         for room in rooms {
-            self.send_message(&room, "Someone disconnected", 0, 0);
+            self.send_message(&room, "Someone disconnected", "0", "0");
         }
     }
 }
@@ -179,7 +178,7 @@ impl Handler<ClientMessage> for ChatServer {
     type Result = ();
 
     fn handle(&mut self, msg: ClientMessage, _: &mut Context<Self>) {
-        self.send_message(&msg.room, msg.msg.as_str(), msg.id, 0);
+        self.send_message(&msg.room, msg.msg.as_str(), &msg.id, "0");
     }
 }
 
@@ -227,14 +226,14 @@ impl Handler<Join> for ChatServer {
         }
         // send message to other users
         for room in rooms {
-            self.send_message(&room, "Someone disconnected", id, 0);
+            self.send_message(&room, "Someone disconnected", &id, "0");
         }
 
         self.rooms
             .entry(name.clone())
             .or_insert_with(HashSet::new)
-            .insert(id);
+            .insert(id.to_string());
 
-        self.send_message(&name, "Someone connected", id, 0);
+        self.send_message(&name, "Someone connected", &id, "0");
     }
 }

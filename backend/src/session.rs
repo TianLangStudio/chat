@@ -9,7 +9,7 @@ use crate::server;
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 
 /// How long before lack of client response causes a timeout
-const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
+const CLIENT_TIMEOUT: Duration = Duration::from_secs(1000);
 
 //use json::JsonValue;
 use serde::{Deserialize, Serialize};
@@ -22,11 +22,11 @@ const JOINED_MSG_NAME: &str = "JoinedMsg";
 struct JoinedMsg {
     name: String,
     room_no:String,
-    id: u32,
+    id: String,
 }
 
 impl JoinedMsg {
-    pub fn new(room_no:String, id:u32) -> Self {
+    pub fn new(room_no:String, id:String) -> Self {
         Self {
             name: JOINED_MSG_NAME.to_string(),
             room_no,
@@ -57,11 +57,11 @@ const ERROR_MSG_NAME: &str = "ErrorMsg";
 struct ErrorMsg {
     name: String,
     room_no:String,
-    id:u32,
+    id:String,
     msg: String,
 }
 impl ErrorMsg {
-    pub  fn new(room_no: String, id:u32, msg:String) -> Self {
+    pub  fn new(room_no: String, id:String, msg:String) -> Self {
         Self {
             name: ERROR_MSG_NAME.to_string(),
             room_no,
@@ -75,12 +75,12 @@ const ROOM_MSG_NAME: &str = "RoomMsg";
 struct RoomMsg {
     name: String,
     room_no:String,
-    from:u32,
+    from:String,
     msg: String,
 }
 
 impl RoomMsg {
-    pub fn new(room_no:String, from: u32, msg: String) -> Self {
+    pub fn new(room_no:String, from: String, msg: String) -> Self {
         Self {
             name: ROOM_MSG_NAME.to_string(),
             room_no,
@@ -96,7 +96,7 @@ impl RoomMsg {
 #[derive(Debug)]
 pub struct WsChatSession {
     /// unique session id
-    pub id: u32,
+    pub id: String,
 
     /// Client must send ping at least once per 10 seconds (CLIENT_TIMEOUT),
     /// otherwise we drop connection.
@@ -124,7 +124,7 @@ impl WsChatSession {
                 println!("Websocket Client heartbeat failed, disconnecting!");
 
                 // notify chat server
-                act.addr.do_send(server::Disconnect { id: act.id });
+                act.addr.do_send(server::Disconnect { id: act.id.to_string() });
 
                 // stop actor
                 ctx.stop();
@@ -155,12 +155,15 @@ impl Actor for WsChatSession {
         let addr = ctx.address();
         self.addr
             .send(server::Connect {
+                session_id: self.id.to_string(),
                 addr: addr.recipient(),
             })
             .into_actor(self)
             .then(|res, act, ctx| {
                 match res {
-                    Ok(res) => act.id = res,
+                    Ok(res) => {
+
+                    }
                     // something is wrong with chat server
                     _ => ctx.stop(),
                 }
@@ -171,7 +174,7 @@ impl Actor for WsChatSession {
 
     fn stopping(&mut self, _: &mut Self::Context) -> Running {
         // notify chat server
-        self.addr.do_send(server::Disconnect { id: self.id });
+        self.addr.do_send(server::Disconnect { id: self.id.to_string() });
         Running::Stop
     }
 }
@@ -244,16 +247,16 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
                             if v.len() == 2 {
                                 self.room = v[1].to_owned();
                                 self.addr.do_send(server::Join {
-                                    id: self.id,
+                                    id: self.id.to_string(),
                                     name: self.room.to_string(),
                                 });
                                 log::info!("self id:{} room name:{:?}", self.id, self.room);
-                                let joined_msg = JoinedMsg::new(self.room.to_string(), self.id);
+                                let joined_msg = JoinedMsg::new(self.room.to_string(), self.id.to_string());
                                 ctx.text(serde_json::to_string(&joined_msg).unwrap());
 
                             } else {
                                 let error_msg = ErrorMsg::new(self.room.clone(),
-                                                              self.id,
+                                                              self.id.to_string(),
                                                               "!!! room name is required".to_string()
                                 );
                                 ctx.text(serde_json::to_string(&error_msg).unwrap());
@@ -264,7 +267,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
                                 self.name = Some(v[1].to_owned());
                             } else {
                                 let error_msg = ErrorMsg::new(self.room.clone(),
-                                                              self.id,
+                                                              self.id.to_string(),
                                                               "!!! name is required".to_string()
                                 );
                                 ctx.text(serde_json::to_string(&error_msg).unwrap());
@@ -272,7 +275,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
                         }
                         _ => {
                             let error_msg = ErrorMsg::new(self.room.clone(),
-                                                          self.id,
+                                                          self.id.to_string(),
                                                           format!("!!! unknown command: {m:?}")
                             );
 
@@ -287,7 +290,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
                     };
                     // send message to chat server
                     self.addr.do_send(server::ClientMessage {
-                        id: self.id,
+                        id: self.id.to_string(),
                         msg,
                         room: self.room.to_string(),
 
