@@ -13,6 +13,7 @@ const CLIENT_TIMEOUT: Duration = Duration::from_secs(1000);
 
 //use json::JsonValue;
 use serde::{Deserialize, Serialize};
+use crate::util::generate_id_from_time;
 /*const MSG_NAME_START_VIDEO: &str = "StartVideo";
 const MSG_NAME_SEND_OFFER: &str ="SendOffer";
 const MSG_NAME_SEND_ANSWER: &str ="SendAnswer";
@@ -22,32 +23,36 @@ const JOINED_MSG_NAME: &str = "JoinedMsg";
 struct JoinedMsg {
     name: String,
     room_no:String,
+    session_id: String,
     id: String,
 }
 
 impl JoinedMsg {
-    pub fn new(room_no:String, id:String) -> Self {
+    pub fn new(room_no:String, session_id:String) -> Self {
         Self {
             name: JOINED_MSG_NAME.to_string(),
             room_no,
-            id,
+            session_id,
+            id: generate_id_from_time(),
         }
     }
 }
 #[derive(Debug, Serialize, Deserialize)]
 struct MsgWithName {
+    id: String,
     name: String,
     room_no:String,
-    id:u32,
+    session_id:String,
     msg:String
 }
 impl MsgWithName {
     #[allow(dead_code)]
-    pub fn new(room_no:String, id:u32, name: String, msg: String) -> Self {
+    pub fn new(room_no:String, session_id: String, name: String, msg: String) -> Self {
          Self {
+             id: generate_id_from_time(),
              name,
              room_no,
-             id,
+             session_id,
              msg
          }
     }
@@ -73,6 +78,7 @@ impl ErrorMsg {
 const ROOM_MSG_NAME: &str = "RoomMsg";
 #[derive(Debug, Serialize, Deserialize)]
 struct RoomMsg {
+    id: String,
     name: String,
     room_no:String,
     from:String,
@@ -82,6 +88,7 @@ struct RoomMsg {
 impl RoomMsg {
     pub fn new(room_no:String, from: String, msg: String) -> Self {
         Self {
+            id: generate_id_from_time(),
             name: ROOM_MSG_NAME.to_string(),
             room_no,
             from,
@@ -289,12 +296,9 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
                         m.to_owned()
                     };
                     // send message to chat server
-                    self.addr.do_send(server::ClientMessage {
-                        id: self.id.to_string(),
-                        msg,
-                        room: self.room.to_string(),
-
-                    })
+                    self.addr.do_send(server::ClientMessage::new(
+                        self.id.to_string(), msg, self.room.to_string()
+                    ))
                 }
             }
             ws::Message::Binary(_) => println!("Unexpected binary"),
@@ -309,3 +313,4 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
         }
     }
 }
+

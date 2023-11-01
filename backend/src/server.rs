@@ -12,6 +12,7 @@ use std::{
 
 use actix::prelude::*;
 use rand::{self, rngs::ThreadRng, Rng, RngCore};
+use crate::util;
 
 /// Chat server sends this messages to session
 #[derive(Message)]
@@ -39,13 +40,25 @@ pub struct Disconnect {
 #[derive(Message)]
 #[rtype(result = "()")]
 pub struct ClientMessage {
-    /// Id of the client session
     pub id: String,
+    /// Id of the client session
+    pub session_id: String,
     /// Peer message
     pub msg: String,
     /// Room name
     pub room: String,
 
+}
+
+impl ClientMessage {
+    pub(crate) fn new(session_id: String, msg: String, room: String) -> Self {
+        ClientMessage {
+            id: util::generate_id_from_time(),
+            session_id,
+            msg,
+            room,
+        }
+    }
 }
 
 /// List of available rooms
@@ -178,7 +191,7 @@ impl Handler<ClientMessage> for ChatServer {
     type Result = ();
 
     fn handle(&mut self, msg: ClientMessage, _: &mut Context<Self>) {
-        self.send_message(&msg.room, msg.msg.as_str(), &msg.id, "0");
+        self.send_message(&msg.room, msg.msg.as_str(), &msg.session_id, "0");
     }
 }
 

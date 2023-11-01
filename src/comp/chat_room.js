@@ -19,6 +19,7 @@ import Chat, {EVENT_CONN_STATUS_CHANGE, EVENT_ROOM_MSG} from "@/util/chat";
 import {isJson} from "@/util/str_util";
 import TextMsg, {createTextMsg} from "@/comp/msg/TextMsg";
 import {createSendFileReqMsg} from "@/comp/msg/SendFileReqMsg";
+import useMsgs from "@/hooks/useMsgs";
 
 let socket;
 let chat;
@@ -70,7 +71,7 @@ const MsgNameSendCandidate="SendCandidate";
 const ChatRoom = (props) => {
     const {roomNo} = props;
     const [connStatus, setConnStatus] = useState(false);
-    const [msgs, setMsgs] = useState([]);
+    const [msgs, addMsg] = useMsgs();
     const [showVideo, setShowVideo] = useState(false);
     const localVideoRef = useRef();
     const remoteVideoRef = useRef();
@@ -94,18 +95,18 @@ const ChatRoom = (props) => {
             fileTransfer = new FileTransfer(chat);
             chat.connect();
             let eventbus = chat.eventbus;
-            eventbus.subscribe(EVENT_ROOM_MSG, (content, isMine, from) => {
-                let id = new Date().getTime() + from;
-                let msgInfo = {from, isMine, content, id};
+            eventbus.subscribe(EVENT_ROOM_MSG, (content, isMine, from, msgId) => {
+                msgId = msgId ||  new Date().getTime() + '';
+                let msgInfo = {from, isMine, content, id:msgId};
                 if(!isJson(content)) {
                     let textMsg = createTextMsg(msgInfo);
-                    setMsgs((pre) => pre.concat([textMsg]));
+                    addMsg(textMsg);
                 }else {
                     let jsonMsg = JSON.parse(content);
                     let name = jsonMsg.name;
                     if(name === MSG_NAME_SEND_FILE_REQ) {
                         let sendFileReqMsg =  createSendFileReqMsg({...msgInfo, ...jsonMsg, chat});
-                        setMsgs((pre) => pre.concat([sendFileReqMsg]));
+                        addMsg(sendFileReqMsg);
                     }else if(name.startsWith(MSG_NAME_RECEIVE_FILE)) {
                         eventbus.publish(name, {...msgInfo, ...jsonMsg.body});
                     }

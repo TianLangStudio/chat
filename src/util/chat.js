@@ -65,14 +65,18 @@ class Chat{
             let name = msg.name;
             switch (name) {
                 case 'JoinedMsg':
-                    this.sessionId = msg.id;
-                    console.log('JoinedMsg:', msg);
-                    this._ping();
+                    if(this.sessionId) {
+                        console.warn("sessionId has assigned ", this.sessionId)
+                    }
+                    this.sessionId = msg.session_id;
+                    console.log('JoinedMsg:', msg, this.sessionId);
+                    //this._ping();
                     this.eventbus.publish(EVENT_CONN_STATUS_CHANGE, true);
                     break;
                 case 'RoomMsg':
                     let msgContent = msg.msg;
                     let msgFrom = msg.from;
+                    let msgId = msg.id;
                     /*let msgName = '';
                     let msgValue = '';
                     try {
@@ -86,7 +90,7 @@ class Chat{
                     console.log('msgFrom:', msgFrom, 'sessionId:', this.sessionId, 'isMineMsg:', isMineMsg)
                     console.log('eventbus publish EVENT_ROOM_MSG, msgContent, isMineMsg, msgFrom:',
                         EVENT_ROOM_MSG, msgContent, isMineMsg, msgFrom )
-                    this.eventbus.publish(EVENT_ROOM_MSG, msgContent, isMineMsg, msgFrom)
+                    this.eventbus.publish(EVENT_ROOM_MSG, msgContent, isMineMsg, msgFrom, msgId)
                     //{from:msgFrom, msg: msgContent, id: new Date().getTime() + ''}
                     break;
                 case 'ErrorMsg':

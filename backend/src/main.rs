@@ -28,6 +28,7 @@ mod server;
 mod session;
 mod turn_server;
 mod handler;
+mod util;
 
 #[allow(dead_code)]
 async fn index() -> impl Responder {
@@ -47,7 +48,7 @@ async fn chat_route(
     let session_id = if let Some(session_id) = req.cookie(CHAT_SESSION_ID_COOKIE) {
         session_id.to_string()
     }else {
-        let session_id = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos().to_string();
+        let session_id = util::generate_id_from_time();
         session_id
     };
 

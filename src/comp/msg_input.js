@@ -23,7 +23,6 @@ export default function MsgInput(props) {
         setMsg(value);
     }, [])
     const keyDownHandler = useCallback((e) => {
-        console.log('onKeyDownHandler:', e);
         if(e.keyCode === 13) {
             _onSend(msg);
         }
@@ -44,7 +43,7 @@ export default function MsgInput(props) {
         >
             <InputBase
                 sx={{ ml: 1, flex: 1 }}
-                placeholder="There put your message!"
+                placeholder="Type your message here!"
                 inputProps={{
                     'aria-label': 'there put input your message'
                 }}
