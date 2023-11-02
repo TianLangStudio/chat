@@ -18,8 +18,8 @@ cargo watch -w src -x run
 cargo run 
 ``` 
 open [https://127.0.0.1:8443/room/0001](https://127.0.0.1:8443/room/0001) in the browser 
-or [http://192.168.0.179:3000/room/0001](http://192.168.0.179:3000/room/0001) 
+or [http://127.0.0.1:3000/room/0001](http://127.0.0.1:3000/room/0001) 
 ![video call](./doc/img/video_call.png)  
 
-Find me On [Upwork](https://www.upwork.com/signup/create-account/client_contact_freelancer?ciphertext=~017ecd3894e805207c&BYOC) 
+Find me On [Upwork](https://www.upwork.com/signup/create-account/client_contact_freelancer?ciphertext=~017ecd3894e805207c&BYOC)
 [Fusion Zhu](https://www.upwork.com/freelancers/huanqingzhu)  
