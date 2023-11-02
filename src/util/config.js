@@ -1,5 +1,5 @@
 //chat
-export const API_SERVER = "127.0.0.1:8443";
+export const API_SERVER = "192.168.0.179:8443";
 //webrtc
 const iceServers = {
     "iceServers": [

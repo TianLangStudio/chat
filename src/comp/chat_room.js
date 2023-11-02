@@ -9,11 +9,18 @@ import {
     bindOnTrack, createAnswer,
     createOffer,
     createPeerConnection,
-    openLocalMedia, saveIceCandidate,
+    saveIceCandidate,
     saveSdp
 } from "@/util/webrtc_util";
+import {openLocalMedia} from "@/util/video_util";
 import {useFiles} from "@/hooks/useFiles";
-import {withPeerConnection} from "@/util/withPeerConnection";
+import {
+    EVENT_NAME_SAVE_OFFER_SDP_SUCCESS,
+    MSG_NAME_ANSWER_SDP_CHANGE,
+    MSG_NAME_CANDIDATE_CHANGE,
+    MSG_NAME_OFFER_SDP_CHANGE,
+    withPeerConnection
+} from "@/util/withPeerConnection";
 import {FileTransfer, MSG_NAME_RECEIVE_FILE, MSG_NAME_SEND_FILE_REQ} from "@/util/file_transfer";
 import Chat, {EVENT_CONN_STATUS_CHANGE, EVENT_ROOM_MSG} from "@/util/chat";
 import {isJson} from "@/util/str_util";
@@ -76,9 +83,23 @@ const ChatRoom = (props) => {
     const localVideoRef = useRef();
     const remoteVideoRef = useRef();
     const [onSelectedFile, onRemoveFile, findFileByPath] = useFiles();
+    const setStream2RemoteVideo = (stream) => {
+        let remoteVideo = remoteVideoRef.current;
+        if(remoteVideo) {
+            remoteVideo.srcObject = stream;
+            remoteVideo.play();
+        }
+    }
+    const setStream2LocalVideo = (stream) => {
+        let localVideo = localVideoRef.current;
+        if(localVideo) {
+            localVideo.srcObject = stream;
+            localVideo.play();
+        }
+    }
     function onVideo() {
         setShowVideo(true);
-        sendCmd(MsgNameStartVideo);
+        chat.sendCmd(MsgNameStartVideo);
     }
     function onFile(e) {
         let fileInfo = onSelectedFile(e);
@@ -109,6 +130,33 @@ const ChatRoom = (props) => {
                         addMsg(sendFileReqMsg);
                     }else if(name.startsWith(MSG_NAME_RECEIVE_FILE)) {
                         eventbus.publish(name, {...msgInfo, ...jsonMsg.body});
+                    }else if([MSG_NAME_ANSWER_SDP_CHANGE, MSG_NAME_OFFER_SDP_CHANGE, MSG_NAME_CANDIDATE_CHANGE].indexOf(name) >= 0) {
+                        eventbus.publish(name, jsonMsg.body, isMine)
+                    }else if(name === MsgNameStartVideo) {//video
+                        setShowVideo(true);
+                        //show remote video
+                        chat.getPeerConn().ontrack = (event) => {
+                            console.log('ontrack:', event);
+                            let stream = event.streams[0];
+                            setStream2RemoteVideo(stream);
+                        }
+                        //open local media
+                        openLocalMedia(stream => {
+                            //send video remotely
+                            console.log("send video remotely");
+                            for (const track of stream.getTracks()) {
+                                chat.getPeerConn().addTrack(track, stream);
+                            }
+                            // show local video
+                            setStream2LocalVideo(stream);
+
+                            if(isMine) {
+                                chat.createOffer()
+                            }
+                            chat.eventbus.subscribe(EVENT_NAME_SAVE_OFFER_SDP_SUCCESS, (sdp) => {
+                                chat.createAnswer(sdp);
+                            })
+                        });
                     }
                     console.log('jsonMsg:', jsonMsg);
                 }
